@@ -24,14 +24,7 @@ func CreateQueue(fileDetails templates.FileDetails, details QueueTemplateDetails
 	return templates.CreateTemplate(queueTemplate, fileDetails, d)
 }
 
-type MultiThreadQueueTemplateDetails struct {
-	// Type of queue element
-	ElementType string
-	// Type name (defaults to ElementTypeQueue)
-	TypeName string
-}
-
-func CreateMultiThreadQueue(fileDetails templates.FileDetails, details MultiThreadQueueTemplateDetails) (err error) {
+func CreateMultiThreadQueue(fileDetails templates.FileDetails, details QueueTemplateDetails) (err error) {
 	d := queueTemplateDetails{
 		MultiThread: true,
 		ElementType: details.ElementType,
@@ -54,8 +47,7 @@ func (d *queueTemplateDetails) setDefaults() {
 	}
 }
 
-var queueTemplate = `
-package {{.Package}}
+var queueTemplate = `package {{.Package}}
 
 import (
 	"sort"
@@ -63,7 +55,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atrico-go/core/syncEx" // >= v1.5.1
+	"github.com/atrico-go/core/syncEx" // >= v1.6.0
 {{- end}}
 )
 
@@ -83,7 +75,10 @@ type {{.TypeName}} interface {
 
 func New{{.TypeName}}(initial ...{{.ElementType}}) {{.TypeName}} {
 	count := len(initial)
-	q := {{$lowTypeName}}{queue: make([]{{.ElementType}}, count), count: count}
+	q := {{$lowTypeName}}{
+		queue: make([]{{.ElementType}}, count),
+		count: count,
+	}
 	for i, el := range initial {
 		q.queue[i] = el
 	}

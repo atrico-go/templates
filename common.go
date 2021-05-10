@@ -20,10 +20,13 @@ func CreateTemplate(templateContent string, fileDetails FileDetails, details int
 	var t *template.Template
 	funcMap := createFunctions()
 	if t, err = template.New("").Funcs(funcMap).Parse(templateContent); err == nil {
-		var outputFile *os.File
-		if outputFile, err = os.Create(fileDetails.TargetFile); err == nil {
-			defer outputFile.Close()
-			err = t.Execute(outputFile, createData(fileDetails, details))
+		if err = os.MkdirAll(filepath.Dir(fileDetails.TargetFile), 0755); err == nil {
+			var outputFile *os.File
+			if outputFile, err = os.Create(fileDetails.TargetFile); err == nil {
+				defer outputFile.Close()
+				err = t.Execute(outputFile, createData(fileDetails, details))
+			}
+
 		}
 	}
 	return err

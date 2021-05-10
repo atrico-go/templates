@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="generate_testobjects" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="templates" />
+    <working_directory value="$PROJECT_DIR$" />
+    <kind value="FILE" />
+    <package value="templates" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/generate_testobjects.go" />
+    <method v="2" />
+  </configuration>
+</component>
