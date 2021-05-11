@@ -63,4 +63,19 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 		}
 	}
+	// CachedValue
+	{
+		fileDetails := templates.FileDetails{
+			TargetFile: makeFile("cached"),
+		}
+		details := templates.CachedValueTemplateDetails {
+			ElementType: "int",
+			TypeName:    "CachedIntValue",
+		}
+		fmt.Printf("Creating %s (%s)\n", details.TypeName, fileDetails.TargetFile)
+		err := templates.CreateCachedValue(fileDetails, details)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}
 }
