@@ -17,7 +17,7 @@ func Test_Queue_Empty(t *testing.T) {
 	// Arrange
 
 	// Act
-	queue := generated.NewIntQueue()
+	queue := generated.IntQueue{}
 	isEmpty := queue.IsEmpty()
 	count := queue.Count()
 	peek := PanicCatcher(func() { queue.Peek() })
@@ -34,7 +34,7 @@ func Test_Queue_InitialValues(t *testing.T) {
 	// Arrange
 	val1, val2 := randGen.Int(), randGen.Int()
 	// Act
-	queue := generated.NewIntQueue(val1, val2)
+	queue := generated.MakeIntQueue(val1, val2)
 	fmt.Printf("Create with: %v,%v\n", val1, val2)
 	count0 := queue.Count()
 	peek1 := queue.Peek()
@@ -59,7 +59,7 @@ func Test_Queue_PushAndPop(t *testing.T) {
 	val1, val2 := randGen.Int(), randGen.Int()
 
 	// Act
-	queue := generated.NewIntQueue()
+	queue := generated.IntQueue{}
 	count0 := queue.Count()
 	queue.Push(val1)
 	fmt.Printf("Push: %v\n", val1)
@@ -82,7 +82,7 @@ func Test_Queue_PushAndPop(t *testing.T) {
 
 func Test_Queue_Sort(t *testing.T) {
 	// Arrange
-	queue := generated.NewIntQueue(3, 1, 2)
+	queue := generated.MakeIntQueue(3, 1, 2)
 
 	// Act
 	queue.Sort(func(i, j int) bool { return i < j })
@@ -94,4 +94,16 @@ func Test_Queue_Sort(t *testing.T) {
 	Assert(t).That(pop1, is.EqualTo(1), "Pop 1")
 	Assert(t).That(pop2, is.EqualTo(2), "Pop 2")
 	Assert(t).That(pop3, is.EqualTo(3), "Pop 3")
+}
+
+func Test_Queue_SortEmptyQueue(t *testing.T) {
+	// Arrange
+	queue := generated.IntQueue{}
+
+	// Act
+	queue.Sort(func(i, j int) bool { return i < j })
+	isEmpty := queue.IsEmpty()
+
+	// Assert
+	Assert(t).That(isEmpty, is.True, "Empty (no sort panic)")
 }

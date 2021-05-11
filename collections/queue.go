@@ -59,43 +59,8 @@ import (
 {{- end}}
 )
 
-{{- $lowTypeName := ToLowerCamel .TypeName}}
-
-type {{.TypeName}} interface {
-	IsEmpty() bool
-	Count() int
-	Push(el {{.ElementType}})
-	Pop({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}})
-	Peek({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}})
-	Sort(less func(i, j {{.ElementType}}) bool)
-{{- if .MultiThread}}
-	WaitUntilEmpty(timeout time.Duration) bool
-{{- end}}
-}
-
-func New{{.TypeName}}(initial ...{{.ElementType}}) {{.TypeName}} {
-	count := len(initial)
-	q := {{$lowTypeName}}{
-		queue: make([]{{.ElementType}}, count),
-		count: count,
-	}
-	for i, el := range initial {
-		q.queue[i] = el
-	}
-{{- if .MultiThread}}
-	q.availableEvent.SetValue(count > 0)
-	q.emptyEvent.SetValue(count == 0)
-{{- end}}
-	return &q
-}
-
-// ----------------------------------------------------------------------------------------------------------------------------
-// Implementation
-// ----------------------------------------------------------------------------------------------------------------------------
-
-type {{$lowTypeName}} struct {
+type {{.TypeName}} struct {
 	queue {{if .MultiThread}}         {{end}}[]{{.ElementType}}
-	count {{if .MultiThread}}         {{end}}int
 {{- if .MultiThread}}
 	accessMutex    sync.Mutex
 	availableEvent syncEx.Event
@@ -103,47 +68,52 @@ type {{$lowTypeName}} struct {
 {{- end}}
 }
 
-func (q *{{$lowTypeName}}) IsEmpty() bool {
+func Make{{.TypeName}}(initial ...{{.ElementType}}) {{.TypeName}} {
+	q := {{.TypeName}}{}
+	for _, el := range initial {
+		q.Push(el)
+	}
+	return q
+}
+
+func (q *{{.TypeName}}) IsEmpty() bool {
 	return q.Count() == 0
 }
 
-func (q *{{$lowTypeName}}) Count() int {
-	return q.count
+func (q *{{.TypeName}}) Count() int {
+	return len(q.queue)
 }
 
-func (q *{{$lowTypeName}}) Push(el {{.ElementType}}) {
+func (q *{{.TypeName}}) Push(el {{.ElementType}}) {
 {{- if .MultiThread}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
 {{- end}}
 	q.queue = append(q.queue, el)
-	q.count++
 {{- if .MultiThread}}
 	q.availableEvent.Set()
 	q.emptyEvent.Reset()
 {{- end}}
 }
 
-func (q *{{$lowTypeName}}) Pop({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
+func (q *{{.TypeName}}) Pop({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
 {{- if .MultiThread}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
 	element, ok = q.peek(timeout)
 	if ok {
 		q.queue = q.queue[1:]
-		q.count--
 		q.availableEvent.SetValue(!q.IsEmpty())
 		q.emptyEvent.SetValue(q.IsEmpty())
 	}
 {{- else}}
 	element = q.Peek()
 	q.queue = q.queue[1:]
-	q.count--
 {{- end}}
 	return element{{if .MultiThread}}, ok{{end}}
 }
 
-func (q *{{$lowTypeName}}) Peek({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
+func (q *{{.TypeName}}) Peek({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
 {{- if .MultiThread}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
@@ -157,7 +127,7 @@ func (q *{{$lowTypeName}}) Peek({{if .MultiThread}}timeout time.Duration{{end}})
 }
 
 // Sort Queue, lowest value will be popped next
-func (q *{{$lowTypeName}}) Sort(before func(i, j {{.ElementType}}) bool) {
+func (q *{{.TypeName}}) Sort(before func(i, j {{.ElementType}}) bool) {
 {{- if .MultiThread}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
@@ -166,11 +136,11 @@ func (q *{{$lowTypeName}}) Sort(before func(i, j {{.ElementType}}) bool) {
 }
 {{- if .MultiThread}}
 
-func (q *{{$lowTypeName}}) WaitUntilEmpty(timeout time.Duration) bool {
+func (q *{{.TypeName}}) WaitUntilEmpty(timeout time.Duration) bool {
 	return q.emptyEvent.Wait(timeout)
 }
 
-func (q *{{$lowTypeName}}) peek(timeout time.Duration) (element {{.ElementType}}, ok bool) {
+func (q *{{.TypeName}}) peek(timeout time.Duration) (element {{.ElementType}}, ok bool) {
 	ok = q.availableEvent.Wait(timeout)
 	if ok {
 		element = q.queue[0]

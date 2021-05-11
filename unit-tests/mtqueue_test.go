@@ -17,7 +17,7 @@ func Test_MtQueue_Empty(t *testing.T) {
 	// Arrange
 
 	// Act
-	queue := generated.NewIntMtQueue()
+	queue := generated.IntMtQueue{}
 	isEmpty := queue.IsEmpty()
 	count := queue.Count()
 	_,peek := queue.Peek(timeout)
@@ -34,7 +34,7 @@ func Test_MtQueue_InitialValues(t *testing.T) {
 	// Arrange
 	val1, val2 := randGen.Int(), randGen.Int()
 	// Act
-	queue := generated.NewIntMtQueue(val1, val2)
+	queue := generated.MakeIntMtQueue(val1, val2)
 	fmt.Printf("Create with: %v,%v\n", val1, val2)
 	count0 := queue.Count()
 	peek1,peekOk1 := queue.Peek(timeout)
@@ -63,7 +63,7 @@ func Test_MtQueue_PushAndPop(t *testing.T) {
 	val1, val2 := randGen.Int(), randGen.Int()
 
 	// Act
-	queue := generated.NewIntMtQueue()
+	queue := generated.IntMtQueue{}
 	count0 := queue.Count()
 	queue.Push(val1)
 	fmt.Printf("Push: %v\n", val1)
@@ -86,7 +86,7 @@ func Test_MtQueue_PushAndPop(t *testing.T) {
 
 func Test_MtQueue_Sort(t *testing.T) {
 	// Arrange
-	queue := generated.NewIntMtQueue(3, 1, 2)
+	queue := generated.MakeIntMtQueue(3, 1, 2)
 
 	// Act
 	queue.Sort(func(i, j int) bool { return i < j })
@@ -100,9 +100,21 @@ func Test_MtQueue_Sort(t *testing.T) {
 	Assert(t).That(pop3, is.EqualTo(3), "Pop 3")
 }
 
+func Test_MtQueue_SortEmptyQueue(t *testing.T) {
+	// Arrange
+	queue := generated.IntMtQueue{}
+
+	// Act
+	queue.Sort(func(i, j int) bool { return i < j })
+	isEmpty := queue.IsEmpty()
+
+	// Assert
+	Assert(t).That(isEmpty, is.True, "Empty (no sort panic)")
+}
+
 func Test_MtQueue_EmptyEvent(t *testing.T) {
 	// Arrange
-	queue := generated.NewIntMtQueue(randGen.Int())
+	queue := generated.MakeIntMtQueue(randGen.Int())
 
 	// Act
 	empty1 := queue.WaitUntilEmpty(timeout)
@@ -117,7 +129,7 @@ func Test_MtQueue_EmptyEvent(t *testing.T) {
 func Test_MtQueue_PeekWithDelayedPush(t *testing.T) {
 	// Arrange
 	val := randGen.Int()
-	queue := generated.NewIntMtQueue()
+	queue := generated.IntMtQueue{}
 	var peek int
 	var peekOk bool
 	wg := sync.WaitGroup{}
@@ -139,7 +151,7 @@ func Test_MtQueue_PeekWithDelayedPush(t *testing.T) {
 func Test_MtQueue_PopWithDelayedPush(t *testing.T) {
 	// Arrange
 	val := randGen.Int()
-	queue := generated.NewIntMtQueue()
+	queue := generated.IntMtQueue{}
 	var pop int
 	var popOk bool
 	wg := sync.WaitGroup{}
