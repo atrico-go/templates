@@ -8,25 +8,26 @@ import (
 )
 
 type QueueTemplateDetails struct {
+	// Type of queue
+	QueueType
 	// Type of queue element
 	ElementType string
 	// Type name (defaults to ElementTypeQueue)
 	TypeName string
 }
 
+type QueueType int
+
+const (
+	QueueTypeNormal      QueueType = iota
+	QueueTypeThreadSafe  QueueType = iota // Mutex controlled to allow multiple threads to use queue safely
+	QueueTypeMultiThread QueueType = iota // Designed for multi-thread queue processing
+)
+
 func CreateQueue(fileDetails templates.FileDetails, details QueueTemplateDetails) (err error) {
 	d := queueTemplateDetails{
-		ElementType: details.ElementType,
-		TypeName:    details.TypeName,
-	}
-	d.setDefaults()
-	// Defaults
-	return templates.CreateTemplate(queueTemplate, fileDetails, d)
-}
-
-func CreateMultiThreadQueue(fileDetails templates.FileDetails, details QueueTemplateDetails) (err error) {
-	d := queueTemplateDetails{
-		MultiThread: true,
+		MultiThread: details.QueueType == QueueTypeMultiThread,
+		AccessMutex: details.QueueType == QueueTypeMultiThread || details.QueueType == QueueTypeThreadSafe,
 		ElementType: details.ElementType,
 		TypeName:    details.TypeName,
 	}
@@ -37,6 +38,7 @@ func CreateMultiThreadQueue(fileDetails templates.FileDetails, details QueueTemp
 
 type queueTemplateDetails struct {
 	MultiThread bool
+	AccessMutex bool
 	ElementType string
 	TypeName    string
 }
@@ -50,19 +52,25 @@ func (d *queueTemplateDetails) setDefaults() {
 var queueTemplate = `package {{.Package}}
 
 import (
-	"sort"
 {{- if .MultiThread}}
+	"context"
+{{- end}}
+	"sort"
+{{- if .AccessMutex}}
 	"sync"
-	"time"
+{{- end}}
+{{- if .MultiThread}}
 
 	"github.com/atrico-go/core/syncEx" // >= v1.6.0
 {{- end}}
 )
 
 type {{.TypeName}} struct {
-	queue {{if .MultiThread}}         {{end}}[]{{.ElementType}}
+	queue {{if .AccessMutex}}      {{end}}{{if .MultiThread}}   {{end}}[]{{.ElementType}}
+{{- if .AccessMutex}}
+	accessMutex {{if .MultiThread}}   {{end}}sync.Mutex
+{{- end}}
 {{- if .MultiThread}}
-	accessMutex    sync.Mutex
 	availableEvent syncEx.Event
 	emptyEvent     syncEx.Event
 {{- end}}
@@ -81,11 +89,15 @@ func (q *{{.TypeName}}) IsEmpty() bool {
 }
 
 func (q *{{.TypeName}}) Count() int {
-	return len(q.queue)
+{{- if .AccessMutex}}
+	q.accessMutex.Lock()
+	defer q.accessMutex.Unlock()
+{{- end}}
+	return q.count()
 }
 
 func (q *{{.TypeName}}) Push(el {{.ElementType}}) {
-{{- if .MultiThread}}
+{{- if .AccessMutex}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
 {{- end}}
@@ -96,39 +108,17 @@ func (q *{{.TypeName}}) Push(el {{.ElementType}}) {
 {{- end}}
 }
 
-func (q *{{.TypeName}}) Pop({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
-{{- if .MultiThread}}
-	q.accessMutex.Lock()
-	defer q.accessMutex.Unlock()
-	element, ok = q.peek(timeout)
-	if ok {
-		q.queue = q.queue[1:]
-		q.availableEvent.SetValue(!q.IsEmpty())
-		q.emptyEvent.SetValue(q.IsEmpty())
-	}
-{{- else}}
-	element = q.Peek()
-	q.queue = q.queue[1:]
-{{- end}}
-	return element{{if .MultiThread}}, ok{{end}}
+func (q *{{.TypeName}}) Pop({{if .MultiThread}}ctx context.Context{{end}}) (element {{.ElementType}}{{if .MultiThread}}, err error{{end}}) {
+	return q.getFirstElement(true{{if .MultiThread}}, ctx{{end}})
 }
 
-func (q *{{.TypeName}}) Peek({{if .MultiThread}}timeout time.Duration{{end}}) (element {{.ElementType}}{{if .MultiThread}}, ok bool{{end}}) {
-{{- if .MultiThread}}
-	q.accessMutex.Lock()
-	defer q.accessMutex.Unlock()
-	return q.peek(timeout)
-{{- else}}
-	if q.IsEmpty() {
-		panic("queue is empty")
-	}
-	return q.queue[0]
-{{- end}}
+func (q *{{.TypeName}}) Peek({{if .MultiThread}}ctx context.Context{{end}}) (element {{.ElementType}}{{if .MultiThread}}, err error{{end}}) {
+	return q.getFirstElement(false{{if .MultiThread}}, ctx{{end}})
 }
 
 // Sort Queue, lowest value will be popped next
 func (q *{{.TypeName}}) Sort(before func(i, j {{.ElementType}}) bool) {
-{{- if .MultiThread}}
+{{- if .AccessMutex}}
 	q.accessMutex.Lock()
 	defer q.accessMutex.Unlock()
 {{- end}}
@@ -136,16 +126,37 @@ func (q *{{.TypeName}}) Sort(before func(i, j {{.ElementType}}) bool) {
 }
 {{- if .MultiThread}}
 
-func (q *{{.TypeName}}) WaitUntilEmpty(timeout time.Duration) bool {
-	return q.emptyEvent.Wait(timeout)
-}
-
-func (q *{{.TypeName}}) peek(timeout time.Duration) (element {{.ElementType}}, ok bool) {
-	ok = q.availableEvent.Wait(timeout)
-	if ok {
-		element = q.queue[0]
-	}
-	return element, ok
+func (q *{{.TypeName}}) WaitUntilEmpty(ctx context.Context) error {
+	return q.emptyEvent.Wait(ctx)
 }
 {{- end}}
+
+func (q *{{.TypeName}}) getFirstElement(remove bool{{if .MultiThread}}, ctx context.Context{{end}}) (element {{.ElementType}}{{if .MultiThread}}, err error{{end}}) {
+{{- if .AccessMutex}}
+	q.accessMutex.Lock()
+	defer q.accessMutex.Unlock()
+{{- end}}
+{{- if .MultiThread}}
+	err = q.availableEvent.Wait(ctx)
+	if err == nil {
+{{- else}}
+	if q.count() == 0 {
+		panic("queue is empty")
+	}
+{{- end}}
+	{{if .MultiThread}}	{{end}}element = q.queue[0]
+	{{if .MultiThread}}	{{end}}if remove {
+		{{if .MultiThread}}	{{end}}q.queue = q.queue[1:]
+{{- if .MultiThread}}
+			q.availableEvent.SetValue(q.count() > 0)
+			q.emptyEvent.SetValue(q.count() == 0)
+		}
+{{- end}}
+	}
+	return element{{if .MultiThread}}, err{{end}}
+}
+
+func (q *{{.TypeName}}) count() int {
+	return len(q.queue)
+}
 `

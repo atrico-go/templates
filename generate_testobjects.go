@@ -21,8 +21,25 @@ func main() {
 			TargetFile: makeFile("queue"),
 		}
 		details := collections.QueueTemplateDetails{
+			QueueType: collections.QueueTypeNormal,
 			ElementType: "int",
 			TypeName:    "IntQueue",
+		}
+		fmt.Printf("Creating %s (%s)\n", details.TypeName, fileDetails.TargetFile)
+		err := collections.CreateQueue(fileDetails, details)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}
+	// thread safe Queue
+	{
+		fileDetails := templates.FileDetails{
+			TargetFile: makeFile("ts_queue"),
+		}
+		details := collections.QueueTemplateDetails{
+			QueueType: collections.QueueTypeThreadSafe,
+			ElementType: "int",
+			TypeName:    "IntTsQueue",
 		}
 		fmt.Printf("Creating %s (%s)\n", details.TypeName, fileDetails.TargetFile)
 		err := collections.CreateQueue(fileDetails, details)
@@ -36,11 +53,12 @@ func main() {
 			TargetFile: makeFile("mt_queue"),
 		}
 		details := collections.QueueTemplateDetails{
+			QueueType: collections.QueueTypeMultiThread,
 			ElementType: "int",
 			TypeName:    "IntMtQueue",
 		}
 		fmt.Printf("Creating %s (%s)\n", details.TypeName, fileDetails.TargetFile)
-		err := collections.CreateMultiThreadQueue(fileDetails, details)
+		err := collections.CreateQueue(fileDetails, details)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
