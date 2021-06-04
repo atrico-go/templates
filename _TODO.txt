@@ -1,0 +1,9 @@
+WIP
+~~~
+
+TODO
+~~~~
+Append types to file
+Debug output (print what is being generated)
+Imports
+default name of qualified types (remove namespace)
